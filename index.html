@@ -1,120 +1,101 @@
-<!DOCTYPE html>
-<html lang="zh-Hant">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>股票即時查詢</title>
-
-<style>
-body{
-    font-family: Arial;
-    max-width:700px;
-    margin:40px auto;
-    padding:20px;
-}
-
-.container{
-    display:flex;
-    gap:10px;
-}
-
-input{
-    flex:1;
-    padding:12px;
-    font-size:18px;
-}
-
-button{
-    padding:12px 20px;
-    cursor:pointer;
-}
-
-.result{
-    margin-top:20px;
-    padding:20px;
-    border:1px solid #ddd;
-    border-radius:10px;
-}
-
-.price{
-    font-size:36px;
-    font-weight:bold;
-}
-</style>
-</head>
-
-<body>
-
-<h1>股票即時股價查詢</h1>
-
-<div class="container">
-    <input
-        id="symbol"
-        placeholder="例如：2330.TW 或 AAPL">
-    <button onclick="getPrice()">查詢</button>
-</div>
-
-<div class="result" id="result">
-請輸入股票代號
-</div>
-
 <script>
 
 async function getPrice(){
 
-    const symbol =
-        document
-        .getElementById("symbol")
-        .value
-        .trim();
+const input =
+document
+.getElementById("symbol")
+.value
+.trim();
 
-    if(!symbol){
-        alert("請輸入股票代號喔喔");
-        return;
-    }
+if(!input){
+alert("請輸入股票代號");
+return;
+}
 
-    const box =
-        document.getElementById("result");
+let symbol=input;
 
-    box.innerHTML="查詢中...";
+// 自動補台股
+if(/^\d+$/.test(symbol)){
+symbol+=".TW";
+}
 
-    try{
+const result=
+document.getElementById("result");
 
-        const url =
-        `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`;
+result.innerHTML="讀取中…";
 
-        const res =
-            await fetch(url);
+try{
 
-        const data =
-            await res.json();
+const url=
+`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`;
 
-        const r =
-            data.chart.result[0];
+const res=
+await fetch(url);
 
-        const price =
-            r.meta.regularMarketPrice;
+const data=
+await res.json();
 
-        const name =
-            r.meta.symbol;
+if(!data.chart.result){
+throw new Error();
+}
 
-        box.innerHTML=`
-            <h2>${name}</h2>
-            <div class="price">
-                ${price}
-            </div>
-        `;
+const meta=
+data.chart.result[0].meta;
 
-    }catch(e){
+const price=
+meta.regularMarketPrice;
 
-        box.innerHTML=
-        "查不到資料，請確認代號喔";
+const prev=
+meta.previousClose;
 
-    }
+const diff=
+(price-prev).toFixed(2);
+
+const pct=
+(
+diff/prev*100
+).toFixed(2);
+
+const color=
+diff>=0
+?"red"
+:"green";
+
+result.innerHTML=
+`
+<h2>${symbol}</h2>
+
+<div
+style="
+font-size:48px;
+color:${color};
+font-weight:bold;
+">
+
+${price}
+
+</div>
+
+<div>
+
+${diff}
+(
+${pct}%
+)
+
+</div>
+
+`;
+
+}
+catch{
+
+result.innerHTML=
+"找不到股票代號";
+
+}
 
 }
 
 </script>
-
-</body>
-</html>
