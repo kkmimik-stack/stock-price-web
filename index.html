@@ -1,47 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>多股票即時查詢</title>
+
+<style>
+
+body{
+font-family:Arial;
+max-width:1200px;
+margin:auto;
+padding:30px;
+background:#f5f5f5;
+}
+
+h1{
+margin-bottom:20px;
+}
+
+.search{
+display:flex;
+gap:10px;
+}
+
+input{
+flex:1;
+padding:14px;
+font-size:18px;
+border-radius:10px;
+border:1px solid #ddd;
+}
+
+button{
+padding:14px 24px;
+border:none;
+background:#1976d2;
+color:white;
+cursor:pointer;
+border-radius:10px;
+}
+
+button:hover{
+opacity:.9;
+}
+
+.tip{
+margin-top:10px;
+color:#666;
+}
+
+.grid{
+margin-top:30px;
+
+display:grid;
+
+grid-template-columns:
+repeat(
+auto-fill,
+minmax(260px,1fr)
+);
+
+gap:16px;
+}
+
+.card{
+
+background:white;
+
+padding:20px;
+
+border-radius:16px;
+
+box-shadow:
+0 2px 8px
+rgba(0,0,0,.08);
+
+}
+
+.symbol{
+font-size:24px;
+font-weight:bold;
+}
+
+.price{
+
+font-size:42px;
+
+margin:12px 0;
+
+}
+
+.up{
+color:#d50000;
+}
+
+.down{
+color:#008000;
+}
+
+.loading{
+
+padding:30px;
+
+font-size:18px;
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h1>📈 多股票即時查詢</h1>
+
+<div class="search">
+
+<input
+id="symbols"
+placeholder="例如：2330,2317,AAPL,NVDA"
+/>
+
+<button onclick="searchStocks()">
+查詢
+</button>
+
+</div>
+
+<div class="tip">
+可同時輸入多個，用逗號分隔
+</div>
+
+<div id="result" class="grid"></div>
+
 <script>
 
-async function getPrice(){
-
-const input =
 document
-.getElementById("symbol")
-.value
-.trim();
+.getElementById("symbols")
+.addEventListener(
+"keydown",
+e=>{
+if(e.key==="Enter"){
+searchStocks();
+}
+}
+);
 
-if(!input){
-alert("請輸入股票代號");
-return;
+function normalize(v){
+
+v=v.trim();
+
+if(
+/^\d+$/.test(v)
+){
+return v+".TW";
 }
 
-let symbol=input;
+return v;
 
-// 自動補台股
-if(/^\d+$/.test(symbol)){
-symbol+=".TW";
 }
 
-const result=
-document.getElementById("result");
-
-result.innerHTML="讀取中…";
+async function fetchStock(symbol){
 
 try{
 
-const url=
-`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`;
-
 const res=
-await fetch(url);
+await fetch(
+`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`
+);
 
 const data=
 await res.json();
 
-if(!data.chart.result){
-throw new Error();
-}
-
 const meta=
-data.chart.result[0].meta;
+data
+.chart
+.result?.[0]
+?.meta;
+
+if(!meta){
+
+return null;
+
+}
 
 const price=
 meta.regularMarketPrice;
@@ -50,52 +194,158 @@ const prev=
 meta.previousClose;
 
 const diff=
-(price-prev).toFixed(2);
+price-prev;
 
 const pct=
 (
 diff/prev*100
 ).toFixed(2);
 
-const color=
-diff>=0
-?"red"
-:"green";
+return{
 
-result.innerHTML=
-`
-<h2>${symbol}</h2>
+symbol,
 
-<div
-style="
-font-size:48px;
-color:${color};
-font-weight:bold;
-">
+price,
 
-${price}
+diff:
+diff.toFixed(2),
 
-</div>
+pct
 
-<div>
+};
 
-${diff}
-(
-${pct}%
+}
+catch{
+
+return null;
+
+}
+
+}
+
+async function searchStocks(){
+
+const input=
+document
+.getElementById(
+"symbols"
 )
+.value;
+
+if(!input){
+
+alert(
+"請輸入股票"
+);
+
+return;
+
+}
+
+const list=
+
+input
+
+.split(",")
+
+.map(normalize)
+
+.filter(Boolean);
+
+const box=
+
+document
+
+.getElementById(
+"result"
+);
+
+box.innerHTML=
+
+`
+<div class="loading">
+讀取中...
+</div>
+`;
+
+const results=
+
+await Promise.all(
+
+list.map(
+
+fetchStock
+
+)
+
+);
+
+box.innerHTML="";
+
+results.forEach(r=>{
+
+if(!r){
+
+box.innerHTML+=`
+
+<div class="card">
+
+查不到資料
 
 </div>
 
 `;
 
-}
-catch{
-
-result.innerHTML=
-"找不到股票代號";
+return;
 
 }
+
+const cls=
+
+r.diff>=0
+?"up"
+:"down";
+
+box.innerHTML+=`
+
+<div class="card">
+
+<div class="symbol">
+
+${r.symbol}
+
+</div>
+
+<div
+class="price ${cls}"
+>
+
+${r.price}
+
+</div>
+
+<div
+class="${cls}"
+>
+
+${r.diff}
+
+(
+${r.pct}%
+)
+
+</div>
+
+</div>
+
+`;
+
+});
 
 }
 
 </script>
+
+</body>
+
+</html>
